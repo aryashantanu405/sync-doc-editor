@@ -69,5 +69,7 @@ Sync Doc Editor is a mini documentation platform where users can:
 Clone the repository:
 
 ```bash
-git clone <https://github.com/aryashantanu405/sync-doc-editor>
+git clone https://github.com/aryashantanu405/sync-doc-editor
 cd sync-doc-editor
+pnpm install
+pnpm run dev
