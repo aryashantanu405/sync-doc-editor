@@ -32,6 +32,22 @@ export default function Sidebar({
   const match = (title: string) =>
     title.toLowerCase().includes(search.toLowerCase());
 
+  const filterDocs = (docs: any[]): any[] => {
+    if (!search) return docs;
+
+    return docs
+      .map((doc) => {
+        const children = filterDocs(doc.children || []);
+
+        if (match(doc.title) || children.length > 0) {
+          return { ...doc, children };
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+  };
+
   const EditableTitle = ({
     id,
     value,
@@ -76,92 +92,95 @@ export default function Sidebar({
     path: number[] = [],
     level = 0
   ) =>
-    docs
-      .filter((doc) => (search ? match(doc.title) : true))
-      .map((doc, i) => {
-        const currentPath = [...path, i];
-        const key = `${sectionIndex}-${currentPath.join("-")}`;
+    docs.map((doc, i) => {
+      const currentPath = [...path, i];
+      const key = `${sectionIndex}-${currentPath.join("-")}`;
 
-        const active =
-          sectionIndex === activeSection &&
-          JSON.stringify(currentPath) === JSON.stringify(activeDocPath);
+      const active =
+        sectionIndex === activeSection &&
+        JSON.stringify(currentPath) === JSON.stringify(activeDocPath);
 
-        const isCollapsed = collapsed[key];
-        const hasChildren = doc.children?.length > 0;
+      const isCollapsed = collapsed[key];
+      const hasChildren = doc.children?.length > 0;
 
-        return (
-          <div key={i}>
-            <div
-              style={{ marginLeft: level * 14 }}
-              onClick={() => onSelectDoc(sectionIndex, currentPath)}
-              onDoubleClick={() => setEditingKey(key)}
-              className={`group flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition
-                ${
-                  active
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-            >
-              {hasChildren && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggle(key);
-                  }}
-                >
-                  {isCollapsed ? (
-                    <ChevronRight size={14} />
-                  ) : (
-                    <ChevronDown size={14} />
-                  )}
-                </button>
-              )}
+      return (
+        <div key={i}>
+          <div
+            style={{ marginLeft: level * 14 }}
+            onClick={() => onSelectDoc(sectionIndex, currentPath)}
+            onDoubleClick={() => setEditingKey(key)}
+            className={`group flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition
+              ${
+                active
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+          >
+            {hasChildren && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggle(key);
+                }}
+              >
+                {isCollapsed ? (
+                  <ChevronRight size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
+              </button>
+            )}
 
-              <FileText size={14} />
+            <FileText size={14} />
 
-              <EditableTitle
-                id={key}
-                value={doc.title}
-                onChange={(v) =>
-                  onRenameDoc(sectionIndex, currentPath, v)
-                }
-              />
+            <EditableTitle
+              id={key}
+              value={doc.title}
+              onChange={(v) =>
+                onRenameDoc(sectionIndex, currentPath, v)
+              }
+            />
 
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddDoc(sectionIndex, currentPath);
-                  }}
-                >
-                  <Plus size={14} />
-                </button>
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddDoc(sectionIndex, currentPath);
+                }}
+              >
+                <Plus size={14} />
+              </button>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveDoc(sectionIndex, currentPath);
-                  }}
-                  className="text-red-500"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveDoc(sectionIndex, currentPath);
+                }}
+                className="text-red-500"
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
-
-            {hasChildren &&
-              !isCollapsed &&
-              renderDocs(doc.children, sectionIndex, currentPath, level + 1)}
           </div>
-        );
-      });
+
+          {hasChildren &&
+            !isCollapsed &&
+            renderDocs(doc.children, sectionIndex, currentPath, level + 1)}
+        </div>
+      );
+    });
 
   return (
     <aside className="w-64 border-r bg-white p-3 overflow-auto">
-
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold">Documents</h2>
-        <button onClick={onAddSection}>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddSection();
+          }}
+        >
           <Plus size={16} />
         </button>
       </div>
@@ -178,6 +197,7 @@ export default function Sidebar({
 
       {sections.map((section: any, sIndex: number) => {
         const key = `section-${sIndex}`;
+        const filteredDocs = filterDocs(section.docs);
 
         return (
           <div key={sIndex} className="mb-6">
@@ -191,20 +211,28 @@ export default function Sidebar({
                 onChange={(v) => onRenameSection(sIndex, v)}
               />
 
-              <button onClick={() => onRemoveSection(sIndex)}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveSection(sIndex);
+                }}
+              >
                 <Trash2 size={14} />
               </button>
             </div>
 
             <button
-              onClick={() => onAddDoc(sIndex)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddDoc(sIndex);
+              }}
               className="flex items-center gap-1 text-xs text-slate-500 mb-2"
             >
               <Plus size={12} />
               Add document
             </button>
 
-            {renderDocs(section.docs, sIndex)}
+            {renderDocs(filteredDocs, sIndex)}
           </div>
         );
       })}

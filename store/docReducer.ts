@@ -18,7 +18,13 @@ type Action =
       type: "SET_ACTIVE_DOC";
       payload: { sectionIndex: number; docPath: number[] };
     }
+
+ 
   | { type: "ADD_SECTION" }
+  | { type: "REMOVE_SECTION"; payload: { sectionIndex: number } }
+  | { type: "RENAME_SECTION"; payload: { sectionIndex: number; title: string } } 
+
+ 
   | {
       type: "ADD_DOC";
       payload: { sectionIndex: number; parentPath?: number[] };
@@ -31,6 +37,8 @@ type Action =
       type: "REMOVE_DOC";
       payload: { sectionIndex: number; docPath: number[] };
     }
+
+  
   | {
       type: "ADD_MARKDOWN_BLOCK";
       payload: { sectionIndex: number; docPath: number[] };
@@ -78,7 +86,7 @@ export const initialState: DocState = {
   activeDocPath: [0],
 };
 
-/* ---------- helpers ---------- */
+
 
 function getDocByPath(docs: DocNode[], path: number[]): DocNode {
   let currentDocs = docs;
@@ -104,7 +112,7 @@ function reindex(list: any[]) {
   list.forEach((item, i) => (item.position = i + 1));
 }
 
-/* ---------- reducer ---------- */
+
 
 export function docReducer(state: DocState, action: Action): DocState {
   const data = structuredClone(state.data);
@@ -120,9 +128,7 @@ export function docReducer(state: DocState, action: Action): DocState {
         activeDocPath: action.payload.docPath,
       };
 
-    /* =====================================================
-       SECTION
-    ===================================================== */
+   
 
     case "ADD_SECTION":
       data.sections.push({
@@ -134,9 +140,29 @@ export function docReducer(state: DocState, action: Action): DocState {
       });
       return { ...state, data };
 
-    /* =====================================================
-       DOCS
-    ===================================================== */
+    
+    case "RENAME_SECTION": {
+      const { sectionIndex, title } = action.payload;
+      data.sections[sectionIndex].title = title;
+      return { ...state, data };
+    }
+
+    
+    case "REMOVE_SECTION": {
+      const { sectionIndex } = action.payload;
+
+      data.sections.splice(sectionIndex, 1);
+      reindex(data.sections);
+
+      return {
+        ...state,
+        data,
+        activeSection: Math.max(0, sectionIndex - 1),
+        activeDocPath: [0],
+      };
+    }
+
+    
 
     case "ADD_DOC": {
       const { sectionIndex, parentPath } = action.payload;
@@ -175,21 +201,15 @@ export function docReducer(state: DocState, action: Action): DocState {
 
     case "REMOVE_DOC": {
       const { sectionIndex, docPath } = action.payload;
-      const parent = getParentDocs(
-        data.sections[sectionIndex].docs,
-        docPath
-      );
+      const parent = getParentDocs(data.sections[sectionIndex].docs, docPath);
 
       parent.splice(docPath[docPath.length - 1], 1);
-
       reindex(parent);
 
       return { ...state, data };
     }
 
-    /* =====================================================
-       BLOCKS
-    ===================================================== */
+    
 
     case "ADD_MARKDOWN_BLOCK": {
       const doc = getDocByPath(
@@ -220,10 +240,8 @@ export function docReducer(state: DocState, action: Action): DocState {
         data.sections[action.payload.sectionIndex].docs,
         action.payload.docPath
       );
-
       doc.content[action.payload.blockIndex].value =
         action.payload.value;
-
       return { ...state, data };
     }
 
@@ -232,10 +250,8 @@ export function docReducer(state: DocState, action: Action): DocState {
         data.sections[action.payload.sectionIndex].docs,
         action.payload.docPath
       );
-
       doc.content[action.payload.blockIndex].blocks =
         action.payload.blocks;
-
       return { ...state, data };
     }
 
@@ -245,8 +261,10 @@ export function docReducer(state: DocState, action: Action): DocState {
         action.payload.docPath
       );
 
-      if (doc.content.length > 1) {
-        doc.content.splice(action.payload.blockIndex, 1);
+      doc.content.splice(action.payload.blockIndex, 1);
+
+      if (doc.content.length === 0) {
+        doc.content.push({ type: "markdown", value: "", html: "" });
       }
 
       return { ...state, data };

@@ -8,7 +8,6 @@ import Sidebar from "@/components/Sidebar";
 import Toolbar from "@/components/Toolbar";
 import { Trash2 } from "lucide-react";
 
-/* ---------- helpers ---------- */
 
 function getActiveDoc(state: any) {
   const section = state.data.sections[state.activeSection];
@@ -26,13 +25,10 @@ function getActiveDoc(state: any) {
   return doc;
 }
 
-/* ---------- page ---------- */
 
 export default function Home() {
 
-  /* =====================================================
-     reducer (wrapped safely)
-  ===================================================== */
+  
 
   const [state, baseDispatch] = useReducer(docReducer, initialState);
 
@@ -63,18 +59,18 @@ export default function Home() {
     baseDispatch({ type: "SET_DATA", payload: next });
   };
 
-  /* ===================================================== */
+ 
 
   const [activeTextarea, setActiveTextarea] =
     useState<HTMLTextAreaElement | null>(null);
 
-  /* ---------- initial load ---------- */
+  
 
   useEffect(() => {
     dispatch({ type: "SET_DATA", payload: initialData });
   }, []);
 
-  /* ---------- keyboard shortcuts ---------- */
+  
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -97,7 +93,7 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handler);
   }, [state]);
 
-  /* ---------- helpers ---------- */
+  
 
   const activeDoc = getActiveDoc(state);
 
@@ -106,12 +102,10 @@ export default function Home() {
     el.style.height = el.scrollHeight + "px";
   };
 
-  /* ===================================================== */
 
   return (
     <main className="h-screen flex flex-col bg-gray-100">
 
-      {/* TOP TOOLBAR */}
       <Toolbar
   textareaRef={{ current: activeTextarea }}
   dispatch={dispatch}
@@ -126,7 +120,6 @@ export default function Home() {
 
       <div className="flex flex-1 overflow-hidden">
 
-        {/* SIDEBAR */}
         <div className="w-64 bg-white border-r">
           <Sidebar
             sections={state.data.sections}
@@ -139,7 +132,13 @@ export default function Home() {
               })
             }
             onAddSection={() => dispatch({ type: "ADD_SECTION" })}
-            onRemoveSection={() => {}}
+            onRemoveSection={(s) =>
+  dispatch({
+    type: "REMOVE_SECTION",
+    payload: { sectionIndex: s },
+  })
+}
+
             onRenameSection={(s, title) =>
               dispatch({
                 type: "RENAME_SECTION",
@@ -167,14 +166,14 @@ export default function Home() {
           />
         </div>
 
-        {/* EDITOR */}
+        
         <div className="w-1/2 p-4 overflow-auto bg-gray-50 border-r">
           {activeDoc?.content.map((block: any, i: number) => {
             if (block.type === "markdown") {
               return (
                 <div key={i} className="relative mb-4 group">
 
-                  {/* DELETE BUTTON */}
+                  
                   <button
                     className="
                       absolute right-2 top-2
@@ -227,7 +226,7 @@ export default function Home() {
                   className="relative mb-4 bg-[#1e1e1e] rounded-xl p-4 shadow group"
                 >
 
-                  {/* DELETE BUTTON */}
+                  
                   <button
                     className="
                       absolute right-2 top-2
@@ -303,7 +302,7 @@ export default function Home() {
           })}
         </div>
 
-        {/* PREVIEW */}
+        
         <div className="w-1/2 p-4 overflow-auto bg-white">
           {activeDoc && <Preview blocks={activeDoc.content} />}
         </div>
