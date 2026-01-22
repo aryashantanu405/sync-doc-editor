@@ -6,7 +6,7 @@ It allows users to create structured documents with sections, nested pages, mark
 
 Designed for fast writing, clean UI, and developer-friendly editing with keyboard shortcuts.
 
----
+### Demo Video link https://drive.google.com/drive/folders/1I2vWHKYmOGCXv0ZGq8yCB_QkQWMYQfTC?usp=sharing
 
 ## 🚀 Project Overview
 
