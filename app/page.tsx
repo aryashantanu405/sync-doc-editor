@@ -1,65 +1,313 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useReducer, useState, useRef } from "react";
+import { docReducer, initialState } from "@/store/docReducer";
+import { initialData } from "@/data/initialData";
+import Preview from "@/components/Preview";
+import Sidebar from "@/components/Sidebar";
+import Toolbar from "@/components/Toolbar";
+import { Trash2 } from "lucide-react";
+
+/* ---------- helpers ---------- */
+
+function getActiveDoc(state: any) {
+  const section = state.data.sections[state.activeSection];
+  if (!section) return null;
+
+  let docs = section.docs;
+  let doc = null;
+
+  for (const index of state.activeDocPath) {
+    doc = docs[index];
+    if (!doc) return null;
+    docs = doc.children ?? [];
+  }
+
+  return doc;
+}
+
+/* ---------- page ---------- */
 
 export default function Home() {
+
+  /* =====================================================
+     reducer (wrapped safely)
+  ===================================================== */
+
+  const [state, baseDispatch] = useReducer(docReducer, initialState);
+
+  const undoStack = useRef<any[]>([]);
+  const redoStack = useRef<any[]>([]);
+
+  const dispatch = (action: any) => {
+    undoStack.current.push(structuredClone(state.data));
+    redoStack.current = [];
+    baseDispatch(action);
+  };
+
+  const undo = () => {
+    if (!undoStack.current.length) return;
+
+    const prev = undoStack.current.pop();
+    redoStack.current.push(structuredClone(state.data));
+
+    baseDispatch({ type: "SET_DATA", payload: prev });
+  };
+
+  const redo = () => {
+    if (!redoStack.current.length) return;
+
+    const next = redoStack.current.pop();
+    undoStack.current.push(structuredClone(state.data));
+
+    baseDispatch({ type: "SET_DATA", payload: next });
+  };
+
+  /* ===================================================== */
+
+  const [activeTextarea, setActiveTextarea] =
+    useState<HTMLTextAreaElement | null>(null);
+
+  /* ---------- initial load ---------- */
+
+  useEffect(() => {
+    dispatch({ type: "SET_DATA", payload: initialData });
+  }, []);
+
+  /* ---------- keyboard shortcuts ---------- */
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+
+      if (!mod) return;
+
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+
+      if ((e.key === "z" && e.shiftKey) || e.key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [state]);
+
+  /* ---------- helpers ---------- */
+
+  const activeDoc = getActiveDoc(state);
+
+  const autoResize = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  };
+
+  /* ===================================================== */
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="h-screen flex flex-col bg-gray-100">
+
+      {/* TOP TOOLBAR */}
+      <Toolbar
+  textareaRef={{ current: activeTextarea }}
+  dispatch={dispatch}
+  activeSection={state.activeSection}
+  activeDocPath={state.activeDocPath}
+  onUndo={undo}
+  onRedo={redo}
+  canUndo={undoStack.current.length > 0}
+  canRedo={redoStack.current.length > 0}
+/>
+
+
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* SIDEBAR */}
+        <div className="w-64 bg-white border-r">
+          <Sidebar
+            sections={state.data.sections}
+            activeSection={state.activeSection}
+            activeDocPath={state.activeDocPath}
+            onSelectDoc={(s, path) =>
+              dispatch({
+                type: "SET_ACTIVE_DOC",
+                payload: { sectionIndex: s, docPath: path },
+              })
+            }
+            onAddSection={() => dispatch({ type: "ADD_SECTION" })}
+            onRemoveSection={() => {}}
+            onRenameSection={(s, title) =>
+              dispatch({
+                type: "RENAME_SECTION",
+                payload: { sectionIndex: s, title },
+              })
+            }
+            onAddDoc={(s, path) =>
+              dispatch({
+                type: "ADD_DOC",
+                payload: { sectionIndex: s, parentPath: path },
+              })
+            }
+            onRemoveDoc={(s, path) =>
+              dispatch({
+                type: "REMOVE_DOC",
+                payload: { sectionIndex: s, docPath: path },
+              })
+            }
+            onRenameDoc={(s: any, path: any, title: any) =>
+              dispatch({
+                type: "RENAME_DOC",
+                payload: { sectionIndex: s, docPath: path, title },
+              })
+            }
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* EDITOR */}
+        <div className="w-1/2 p-4 overflow-auto bg-gray-50 border-r">
+          {activeDoc?.content.map((block: any, i: number) => {
+            if (block.type === "markdown") {
+              return (
+                <div key={i} className="relative mb-4 group">
+
+                  {/* DELETE BUTTON */}
+                  <button
+                    className="
+                      absolute right-2 top-2
+                      p-1 rounded-md
+                      text-gray-400 hover:text-red-500
+                      hover:bg-red-50
+                      opacity-0 group-hover:opacity-100
+                      transition
+                    "
+                    onClick={() =>
+                      dispatch({
+                        type: "REMOVE_BLOCK",
+                        payload: {
+                          sectionIndex: state.activeSection,
+                          docPath: state.activeDocPath,
+                          blockIndex: i,
+                        },
+                      })
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </button>
+
+                  <textarea
+                    className="w-full bg-white border border-gray-200 rounded-lg p-4 resize-none outline-none focus:ring-2 focus:ring-blue-200 transition text-gray-800"
+                    value={block.value}
+                    onFocus={(e) => setActiveTextarea(e.target)}
+                    onChange={(e) => {
+                      autoResize(e.target);
+                      dispatch({
+                        type: "UPDATE_MARKDOWN_BLOCK",
+                        payload: {
+                          sectionIndex: state.activeSection,
+                          docPath: state.activeDocPath,
+                          blockIndex: i,
+                          value: e.target.value,
+                        },
+                      });
+                    }}
+                    ref={(el) => el && autoResize(el)}
+                  />
+                </div>
+              );
+            }
+
+            if (block.type === "codegroup") {
+              return (
+                <div
+                  key={i}
+                  className="relative mb-4 bg-[#1e1e1e] rounded-xl p-4 shadow group"
+                >
+
+                  {/* DELETE BUTTON */}
+                  <button
+                    className="
+                      absolute right-2 top-2
+                      p-1 rounded-md
+                      text-gray-400 hover:text-red-500
+                      hover:bg-red-50
+                      opacity-0 group-hover:opacity-100
+                      transition
+                    "
+                    onClick={() =>
+                      dispatch({
+                        type: "REMOVE_BLOCK",
+                        payload: {
+                          sectionIndex: state.activeSection,
+                          docPath: state.activeDocPath,
+                          blockIndex: i,
+                        },
+                      })
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </button>
+
+                  {block.blocks.map((b: any, j: number) => (
+                    <div key={j} className="mb-4">
+                      <input
+                        className="mb-2 bg-[#2d2d2d] text-gray-200 border border-gray-600 rounded px-2 py-1 text-xs"
+                        value={b.language}
+                        onChange={(e) => {
+                          const updated = [...block.blocks];
+                          updated[j] = {
+                            ...updated[j],
+                            language: e.target.value,
+                          };
+                          dispatch({
+                            type: "UPDATE_CODEGROUP",
+                            payload: {
+                              sectionIndex: state.activeSection,
+                              docPath: state.activeDocPath,
+                              blockIndex: i,
+                              blocks: updated,
+                            },
+                          });
+                        }}
+                      />
+                      <textarea
+                        className="w-full bg-[#1e1e1e] text-[#d4d4d4] font-mono text-sm border border-gray-700 rounded-md p-3 outline-none focus:ring-1 focus:ring-blue-500"
+                        value={b.code}
+                        onChange={(e) => {
+                          const updated = [...block.blocks];
+                          updated[j] = {
+                            ...updated[j],
+                            code: e.target.value,
+                          };
+                          dispatch({
+                            type: "UPDATE_CODEGROUP",
+                            payload: {
+                              sectionIndex: state.activeSection,
+                              docPath: state.activeDocPath,
+                              blockIndex: i,
+                              blocks: updated,
+                            },
+                          });
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
+            return null;
+          })}
         </div>
-      </main>
-    </div>
+
+        {/* PREVIEW */}
+        <div className="w-1/2 p-4 overflow-auto bg-white">
+          {activeDoc && <Preview blocks={activeDoc.content} />}
+        </div>
+      </div>
+    </main>
   );
 }
